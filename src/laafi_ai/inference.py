@@ -12,7 +12,9 @@ from laafi_ai.model import build_resnet50_classifier
 
 
 def load_model_from_checkpoint(path: str | Path, device: torch.device) -> tuple[nn.Module, ExperimentConfig]:
-    checkpoint = torch.load(path, map_location=device)
+    # weights_only=False because checkpoint contains config dict alongside model weights.
+    # Only load checkpoints from trusted sources.
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
     config = ExperimentConfig.from_dict(checkpoint["config"])
     model = build_resnet50_classifier(config.model)
     model.load_state_dict(checkpoint["model_state_dict"])

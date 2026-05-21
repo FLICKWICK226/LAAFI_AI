@@ -17,7 +17,8 @@ class ResNet50Classifier(nn.Module):
 def load_model(weights_path: str, device: torch.device) -> nn.Module:
     model = ResNet50Classifier().to(device)
     try:
-        model.load_state_dict(torch.load(weights_path, map_location=device))
+        # weights_only=False: loading full state_dict. Only load trusted checkpoints.
+        model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=False))
         model.eval()
         return model
     except Exception as e:
