@@ -1,0 +1,31 @@
+project_name: LAAFI_AI_PCam_ResNet50
+seed: 42
+output_dir: outputs
+device: auto
+
+data:
+  dataset_name: 1aurent/PatchCamelyon
+  image_size: 224
+  batch_size: 32
+  num_workers: 2
+  max_train_samples: null
+  max_val_samples: null
+  max_test_samples: null
+
+model:
+  architecture: resnet50
+  pretrained: true
+  num_classes: 1
+  freeze_backbone: true
+  unfreeze_layer4: false
+
+optimizer:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+training:
+  epochs: 3
+  mixed_precision: true
+  use_wandb: false
+  wandb_project: LAAFI_AI
+  decision_threshold: 0.5

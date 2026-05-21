@@ -1,0 +1,24 @@
+[project]
+name = "laafi-ai"
+version = "0.1.0"
+description = "Binary metastasis classification on PatchCamelyon with ResNet50."
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "torchvision",
+    "datasets",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "tqdm",
+    "Pillow",
+    "PyYAML",
+    "wandb",
+    "grad-cam",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
