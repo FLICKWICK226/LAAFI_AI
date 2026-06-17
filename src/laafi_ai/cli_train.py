@@ -47,8 +47,19 @@ def main() -> None:
     device = get_device(config.device)
     LOGGER.info("Using device: %s", device)
 
+    # --- H&E Stain Normalization (Macenko) — opt-in via config ---
+    he_normalizer = None
+    if config.data.use_he_normalization:
+        from laafi_ai.stain_normalization import build_macenko_normalizer
+        he_normalizer = build_macenko_normalizer(config.data.he_reference_image_path)
+        if he_normalizer.enabled:
+            LOGGER.info("H&E Macenko stain normalization ENABLED (ref: %s).",
+                        config.data.he_reference_image_path or "synthetic PCam reference")
+        else:
+            LOGGER.warning("H&E normalization requested but torchstain unavailable — continuing without it.")
+
     data_module = PCamDataModule(config.data)
-    train_loader, val_loader, _ = data_module.dataloaders()
+    train_loader, val_loader, _ = data_module.dataloaders(he_normalizer=he_normalizer)
 
     model = build_resnet50_classifier(config.model)
     LOGGER.info("Trainable parameters: %s", count_trainable_parameters(model))
