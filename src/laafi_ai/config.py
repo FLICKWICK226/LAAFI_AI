@@ -40,6 +40,8 @@ class TrainingConfig:
     use_wandb: bool = False
     wandb_project: str = "LAAFI_AI"
     decision_threshold: float = 0.5
+    auto_optimize_threshold: bool = False
+    calibrate_probabilities: bool = False
 
 
 @dataclass(slots=True)
