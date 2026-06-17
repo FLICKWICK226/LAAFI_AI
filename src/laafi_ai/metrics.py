@@ -1,3 +1,18 @@
+import numpy as np
+from sklearn.metrics import roc_curve
+
+def find_optimal_threshold_youden(y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    """
+    y_true: array de 0/1 (labels réels)
+    y_scores: probabilités (sigmoïdes des logits) ou scores continus
+
+    Retourne le seuil qui maximise J = sensibilité + spécificité - 1.
+    """
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    youden_j = tpr - fpr  # tpr + (1 - fpr) - 1 = tpr - fpr
+    idx = np.argmax(youden_j)
+    return float(thresholds[idx])
+
 from __future__ import annotations
 
 from dataclasses import dataclass
