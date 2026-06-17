@@ -31,3 +31,6 @@ training:
   decision_threshold: 0.5
   auto_optimize_threshold: false
   calibrate_probabilities: false
+  use_mlflow: false
+  mlflow_experiment: LAAFI_AI_PCam
+  mlflow_tracking_uri: mlruns

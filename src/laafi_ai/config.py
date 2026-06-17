@@ -42,6 +42,9 @@ class TrainingConfig:
     decision_threshold: float = 0.5
     auto_optimize_threshold: bool = False
     calibrate_probabilities: bool = False
+    use_mlflow: bool = False
+    mlflow_experiment: str = "LAAFI_AI_PCam"
+    mlflow_tracking_uri: str = "mlruns"
 
 
 @dataclass(slots=True)
