@@ -1,18 +1,3 @@
-import numpy as np
-from sklearn.metrics import roc_curve
-
-def find_optimal_threshold_youden(y_true: np.ndarray, y_scores: np.ndarray) -> float:
-    """
-    y_true: array de 0/1 (labels réels)
-    y_scores: probabilités (sigmoïdes des logits) ou scores continus
-
-    Retourne le seuil qui maximise J = sensibilité + spécificité - 1.
-    """
-    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
-    youden_j = tpr - fpr  # tpr + (1 - fpr) - 1 = tpr - fpr
-    idx = np.argmax(youden_j)
-    return float(thresholds[idx])
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,7 +10,21 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
+
+
+def find_optimal_threshold_youden(y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    """
+    y_true: array de 0/1 (labels réels)
+    y_scores: probabilités (sigmoïdes des logits) ou scores continus
+
+    Retourne le seuil qui maximise J = sensibilité + spécificité - 1.
+    """
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    youden_j = tpr - fpr
+    idx = np.argmax(youden_j)
+    return float(thresholds[idx])
 
 
 @dataclass(slots=True)
@@ -46,6 +45,7 @@ def compute_binary_metrics(
     labels = labels.astype(int)
     predictions = (probabilities >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
@@ -55,5 +55,7 @@ def compute_binary_metrics(
         average_precision=float(average_precision_score(labels, probabilities)),
         sensitivity=float(sensitivity),
         specificity=float(specificity),
-        precision=float(precision_score(labels, predictions, zero_division=0)),
+        precision=float(
+            precision_score(labels, predictions, zero_division=0)
+        ),
     )
