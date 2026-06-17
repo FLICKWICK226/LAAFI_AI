@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -16,6 +16,9 @@ class DataConfig:
     max_train_samples: int | None = None
     max_val_samples: int | None = None
     max_test_samples: int | None = None
+    # H&E stain normalization (Macenko)
+    use_he_normalization: bool = False
+    he_reference_image_path: Optional[str] = None
 
 
 @dataclass(slots=True)
