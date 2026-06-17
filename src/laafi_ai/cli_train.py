@@ -55,6 +55,10 @@ def main() -> None:
 
     trainer = Trainer(model=model, config=config, device=device)
     trainer.fit(train_loader, val_loader)
+    if cfg.training.auto_optimize_threshold:
+        result = optimize_threshold_from_val(cfg.paths.output_dir)
+        best_threshold = result["threshold"]
+        logger.info(f"Optimal threshold (Youden J) on val: {best_threshold:.4f}")
 
 
 if __name__ == "__main__":
