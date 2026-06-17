@@ -22,12 +22,15 @@ class Trainer:
         self.model = model.to(device)
         self.config = config
         self.device = device
+
         self.criterion = nn.BCEWithLogitsLoss()
+
         self.optimizer = AdamW(
             [p for p in self.model.parameters() if p.requires_grad],
             lr=config.optimizer.learning_rate,
             weight_decay=config.optimizer.weight_decay,
         )
+
         self.scaler = torch.cuda.amp.GradScaler(
             enabled=config.training.mixed_precision and device.type == "cuda"
         )
@@ -35,12 +38,15 @@ class Trainer:
     def fit(self, train_loader: DataLoader, val_loader: DataLoader) -> list[dict[str, float]]:
         history: list[dict[str, float]] = []
         best_auc = -np.inf
+
         checkpoint_dir = self.config.output_path / "checkpoints"
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         for epoch in range(1, self.config.training.epochs + 1):
             train_loss = self.train_one_epoch(train_loader, epoch)
-            val_loss, val_metrics = self.evaluate(val_loader)
+            # on sauvegarde les outputs val pour pouvoir optimiser le seuil
+            val_loss, val_metrics = self.evaluate(val_loader, save_val_outputs=True)
+
             row = {
                 "epoch": float(epoch),
                 "train_loss": train_loss,
@@ -62,12 +68,14 @@ class Trainer:
     def train_one_epoch(self, loader: DataLoader, epoch: int) -> float:
         self.model.train()
         losses: list[float] = []
+
         progress = tqdm(loader, desc=f"train epoch {epoch}", leave=False)
         for images, labels in progress:
             images = images.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
 
             self.optimizer.zero_grad(set_to_none=True)
+
             with torch.cuda.amp.autocast(
                 enabled=self.config.training.mixed_precision and self.device.type == "cuda"
             ):
@@ -77,13 +85,18 @@ class Trainer:
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
+
             losses.append(float(loss.detach().cpu()))
             progress.set_postfix(loss=np.mean(losses))
 
         return float(np.mean(losses))
 
     @torch.no_grad()
-    def evaluate(self,loader: DataLoader,save_val_outputs: bool = False,) -> tuple[float, BinaryMetrics]:
+    def evaluate(
+        self,
+        loader: DataLoader,
+        save_val_outputs: bool = False,
+    ) -> tuple[float, BinaryMetrics]:
         self.model.eval()
         losses: list[float] = []
         labels_all: list[np.ndarray] = []
@@ -95,7 +108,6 @@ class Trainer:
 
             logits = self.model(images).squeeze(1)
             loss = self.criterion(logits, labels)
-
             probabilities = torch.sigmoid(logits)
 
             losses.append(float(loss.cpu()))
@@ -116,26 +128,7 @@ class Trainer:
             output_dir.mkdir(parents=True, exist_ok=True)
             np.save(output_dir / "val_labels.npy", labels_np)
             np.save(output_dir / "val_probs.npy", probabilities_np)
-        return float(np.mean(losses)), metrics
 
-        for images, labels in tqdm(loader, desc="eval", leave=False):
-            images = images.to(self.device, non_blocking=True)
-            labels = labels.to(self.device, non_blocking=True)
-            logits = self.model(images).squeeze(1)
-            loss = self.criterion(logits, labels)
-            probabilities = torch.sigmoid(logits)
-
-            losses.append(float(loss.cpu()))
-            labels_all.append(labels.cpu().numpy())
-            probabilities_all.append(probabilities.cpu().numpy())
-
-        labels_np = np.concatenate(labels_all)
-        probabilities_np = np.concatenate(probabilities_all)
-        metrics = compute_binary_metrics(
-            labels_np,
-            probabilities_np,
-            threshold=self.config.training.decision_threshold,
-        )
         return float(np.mean(losses)), metrics
 
     def save_checkpoint(self, path: Path, metrics: BinaryMetrics) -> None:
@@ -148,4 +141,3 @@ class Trainer:
             path,
         )
         LOGGER.info("Saved checkpoint to %s", path)
-
