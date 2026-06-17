@@ -119,3 +119,18 @@ class Trainer:
             path,
         )
         LOGGER.info("Saved checkpoint to %s", path)
+# pendant la validation
+all_logits = []
+all_labels = []
+with torch.no_grad():
+    for batch in val_loader:
+        images, labels = batch["image"].to(device), batch["label"].to(device)
+        logits = model(images)
+        all_logits.append(logits.cpu())
+        all_labels.append(labels.cpu())
+
+all_logits = torch.cat(all_logits).numpy()
+all_labels = torch.cat(all_labels).numpy()
+
+np.save(output_dir / "val_logits.npy", all_logits)
+np.save(output_dir / "val_labels.npy", all_labels)
