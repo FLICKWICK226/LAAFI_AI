@@ -24,8 +24,9 @@ optimizer:
   weight_decay: 0.0001
 
 training:
-  epochs: 3
+  epochs: 5
   mixed_precision: true
   use_wandb: false
   wandb_project: LAAFI_AI
   decision_threshold: 0.5
+  auto_optimize_threshold: true
