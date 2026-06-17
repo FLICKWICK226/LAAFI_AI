@@ -1,13 +1,10 @@
-ifrom __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
 
-from .metrics import (
-    compute_binary_metrics,
-    find_optimal_threshold_youden,
-)
+from .metrics import compute_binary_metrics, find_optimal_threshold_youden
 
 
 def optimize_threshold_from_val(output_dir: str | Path) -> dict:
