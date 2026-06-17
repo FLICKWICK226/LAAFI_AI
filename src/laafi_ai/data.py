@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 import torch
 from datasets import Dataset, DatasetDict, load_dataset
@@ -15,28 +15,67 @@ from laafi_ai.config import DataConfig
 LOGGER = logging.getLogger(__name__)
 
 
-def build_train_transform(image_size: int) -> transforms.Compose:
-    return transforms.Compose(
-        [
-            transforms.Resize((image_size, image_size)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.RandomRotation(20),
-            transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.08),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-        ]
-    )
+def build_train_transform(
+    image_size: int,
+    he_normalizer: Optional[Any] = None,
+) -> transforms.Compose:
+    """Build the training augmentation pipeline.
+
+    Parameters
+    ----------
+    image_size : int
+        Target spatial size (square crop).
+    he_normalizer : MacenkoTransform | None
+        Optional H&E stain normalizer applied *before* augmentation.
+        When provided, ColorJitter is disabled because colour-based
+        augmentations conflict with the normalised stain representation.
+    """
+    steps: list[Any] = [transforms.Resize((image_size, image_size))]
+
+    if he_normalizer is not None and he_normalizer.enabled:
+        # H&E normalisation → deterministic colour space; skip ColorJitter
+        steps.append(he_normalizer)
+        LOGGER.debug("H&E Macenko normalizer enabled for training transforms (ColorJitter disabled).")
+    else:
+        # Standard colour augmentation when no stain normalizer is active
+        steps.append(
+            transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.08)
+        )
+
+    steps += [
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(20),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ]
+    return transforms.Compose(steps)
 
 
-def build_eval_transform(image_size: int) -> transforms.Compose:
-    return transforms.Compose(
-        [
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-        ]
-    )
+def build_eval_transform(
+    image_size: int,
+    he_normalizer: Optional[Any] = None,
+) -> transforms.Compose:
+    """Build the evaluation / inference transform pipeline.
+
+    Parameters
+    ----------
+    image_size : int
+        Target spatial size (square crop).
+    he_normalizer : MacenkoTransform | None
+        Same normalizer used at training time for consistent preprocessing.
+    """
+    steps: list[Any] = [transforms.Resize((image_size, image_size))]
+
+    if he_normalizer is not None and he_normalizer.enabled:
+        steps.append(he_normalizer)
+        LOGGER.debug("H&E Macenko normalizer enabled for eval transforms.")
+
+    steps += [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ]
+    return transforms.Compose(steps)
 
 
 class PCamTorchDataset(torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
@@ -79,11 +118,30 @@ class PCamDataModule:
             }
         )
 
-    def dataloaders(self) -> tuple[DataLoader, DataLoader, DataLoader]:
+    def dataloaders(
+        self,
+        he_normalizer: Optional[Any] = None,
+    ) -> tuple[DataLoader, DataLoader, DataLoader]:
+        """Return (train, val, test) DataLoaders.
+
+        Parameters
+        ----------
+        he_normalizer : MacenkoTransform | None
+            When provided, stain normalization is applied to all splits.
+        """
         raw = self.load()
-        train_ds = PCamTorchDataset(raw["train"], build_train_transform(self.config.image_size))
-        val_ds = PCamTorchDataset(raw["validation"], build_eval_transform(self.config.image_size))
-        test_ds = PCamTorchDataset(raw["test"], build_eval_transform(self.config.image_size))
+        train_ds = PCamTorchDataset(
+            raw["train"],
+            build_train_transform(self.config.image_size, he_normalizer=he_normalizer),
+        )
+        val_ds = PCamTorchDataset(
+            raw["validation"],
+            build_eval_transform(self.config.image_size, he_normalizer=he_normalizer),
+        )
+        test_ds = PCamTorchDataset(
+            raw["test"],
+            build_eval_transform(self.config.image_size, he_normalizer=he_normalizer),
+        )
 
         train_loader = DataLoader(
             train_ds,
