@@ -17,6 +17,18 @@ from laafi_ai.metrics import BinaryMetrics, compute_binary_metrics
 LOGGER = logging.getLogger(__name__)
 
 
+def _try_import_mlflow():
+    """Import mlflow paresseusement — pas de crash si non installé."""
+    try:
+        import mlflow
+        return mlflow
+    except ImportError:
+        LOGGER.warning(
+            "mlflow non installé. Désactiver use_mlflow ou pip install mlflow."
+        )
+        return None
+
+
 class Trainer:
     def __init__(self, model: nn.Module, config: ExperimentConfig, device: torch.device) -> None:
         self.model = model.to(device)
@@ -35,7 +47,83 @@ class Trainer:
             enabled=config.training.mixed_precision and device.type == "cuda"
         )
 
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def fit(self, train_loader: DataLoader, val_loader: DataLoader) -> list[dict[str, float]]:
+        """Entraîne le modèle. Wrappe automatiquement un run MLflow si use_mlflow=True."""
+        if self.config.training.use_mlflow:
+            return self._fit_with_mlflow(train_loader, val_loader)
+        return self._fit_loop(train_loader, val_loader)
+
+    # ------------------------------------------------------------------
+    # MLflow wrapper
+    # ------------------------------------------------------------------
+
+    def _fit_with_mlflow(
+        self, train_loader: DataLoader, val_loader: DataLoader
+    ) -> list[dict[str, float]]:
+        mlflow = _try_import_mlflow()
+        if mlflow is None:
+            LOGGER.warning("Fallback: entraînement sans MLflow.")
+            return self._fit_loop(train_loader, val_loader)
+
+        mlflow.set_tracking_uri(self.config.training.mlflow_tracking_uri)
+        mlflow.set_experiment(self.config.training.mlflow_experiment)
+
+        with mlflow.start_run(run_name=self.config.project_name):
+            # --- Logger tous les hyperparamètres ---
+            mlflow.log_params({
+                # Optimizer
+                "lr": self.config.optimizer.learning_rate,
+                "weight_decay": self.config.optimizer.weight_decay,
+                # Training
+                "epochs": self.config.training.epochs,
+                "decision_threshold": self.config.training.decision_threshold,
+                "mixed_precision": self.config.training.mixed_precision,
+                # Model
+                "architecture": self.config.model.architecture,
+                "pretrained": self.config.model.pretrained,
+                "freeze_backbone": self.config.model.freeze_backbone,
+                "unfreeze_layer4": self.config.model.unfreeze_layer4,
+                # Data
+                "batch_size": self.config.data.batch_size,
+                "image_size": self.config.data.image_size,
+                "dataset": self.config.data.dataset_name,
+            })
+
+            history = self._fit_loop(train_loader, val_loader, mlflow_client=mlflow)
+
+            # --- Logger le best checkpoint comme artifact ---
+            best_ckpt = self.config.output_path / "checkpoints" / "best_resnet50_pcam.pt"
+            if best_ckpt.exists():
+                mlflow.log_artifact(str(best_ckpt), artifact_path="checkpoints")
+                LOGGER.info("MLflow artifact loggé : %s", best_ckpt)
+
+            # --- Logger les métriques finales (best epoch) ---
+            if history:
+                best_row = max(history, key=lambda r: r["val_auc"])
+                mlflow.log_metrics({
+                    "best_val_auc": best_row["val_auc"],
+                    "best_val_sensitivity": best_row["val_sensitivity"],
+                    "best_val_specificity": best_row["val_specificity"],
+                    "best_val_accuracy": best_row["val_accuracy"],
+                    "best_epoch": best_row["epoch"],
+                })
+
+        return history
+
+    # ------------------------------------------------------------------
+    # Core training loop
+    # ------------------------------------------------------------------
+
+    def _fit_loop(
+        self,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        mlflow_client=None,
+    ) -> list[dict[str, float]]:
         history: list[dict[str, float]] = []
         best_auc = -np.inf
 
@@ -44,7 +132,6 @@ class Trainer:
 
         for epoch in range(1, self.config.training.epochs + 1):
             train_loss = self.train_one_epoch(train_loader, epoch)
-            # on sauvegarde les outputs val pour pouvoir optimiser le seuil
             val_loss, val_metrics = self.evaluate(val_loader, save_val_outputs=True)
 
             row = {
@@ -55,15 +142,37 @@ class Trainer:
                 "val_accuracy": val_metrics.accuracy,
                 "val_sensitivity": val_metrics.sensitivity,
                 "val_specificity": val_metrics.specificity,
+                "val_precision": val_metrics.precision,
+                "val_average_precision": val_metrics.average_precision,
             }
             history.append(row)
             LOGGER.info("Epoch %s summary: %s", epoch, row)
+
+            # --- Logger les métriques par epoch dans MLflow ---
+            if mlflow_client is not None:
+                mlflow_client.log_metrics(
+                    {
+                        "train_loss": train_loss,
+                        "val_loss": val_loss,
+                        "val_auc": val_metrics.auc,
+                        "val_accuracy": val_metrics.accuracy,
+                        "val_sensitivity": val_metrics.sensitivity,
+                        "val_specificity": val_metrics.specificity,
+                        "val_precision": val_metrics.precision,
+                        "val_average_precision": val_metrics.average_precision,
+                    },
+                    step=epoch,
+                )
 
             if val_metrics.auc > best_auc:
                 best_auc = val_metrics.auc
                 self.save_checkpoint(checkpoint_dir / "best_resnet50_pcam.pt", val_metrics)
 
         return history
+
+    # ------------------------------------------------------------------
+    # Per-epoch methods (inchangés)
+    # ------------------------------------------------------------------
 
     def train_one_epoch(self, loader: DataLoader, epoch: int) -> float:
         self.model.train()

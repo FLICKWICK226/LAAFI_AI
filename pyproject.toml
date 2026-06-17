@@ -15,7 +15,7 @@ dependencies = [
     "tqdm",
     "Pillow",
     "PyYAML",
-    "wandb",
+    "mlflow",
     "grad-cam",
 ]
 
