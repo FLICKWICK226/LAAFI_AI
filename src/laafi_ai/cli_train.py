@@ -55,10 +55,60 @@ def main() -> None:
 
     trainer = Trainer(model=model, config=config, device=device)
     trainer.fit(train_loader, val_loader)
-    if cfg.training.auto_optimize_threshold:
-        result = optimize_threshold_from_val(cfg.paths.output_dir)
+
+    # --- Semaine 1-2 : Optimisation du seuil de décision (Youden J) ---
+    if config.training.auto_optimize_threshold:
+        from laafi_ai.threshold_optimization import optimize_threshold_from_val
+        result = optimize_threshold_from_val(config.output_path)
         best_threshold = result["threshold"]
-        logger.info(f"Optimal threshold (Youden J) on val: {best_threshold:.4f}")
+        LOGGER.info("Seuil optimal (Youden J) sur val : %.4f", best_threshold)
+        config.training.decision_threshold = best_threshold
+
+    # --- Semaine 2-3 : Calibration des probabilités (Temperature Scaling) ---
+    if config.training.calibrate_probabilities:
+        import numpy as np
+        from laafi_ai.calibration import TemperatureScaling, plot_reliability_diagram
+
+        LOGGER.info("Calibration des probabilités par temperature scaling...")
+        calibrated = TemperatureScaling(trainer.model).to(device)
+        T = calibrated.calibrate(val_loader, device)
+        LOGGER.info("Température optimale T=%.4f", T)
+
+        # Reliability diagram avant/après
+        val_labels_path = config.output_path / "val_labels.npy"
+        val_probs_path = config.output_path / "val_probs.npy"
+        if val_labels_path.exists() and val_probs_path.exists():
+            val_labels = np.load(val_labels_path)
+            val_probs_before = np.load(val_probs_path)
+            scaled_logits, _ = calibrated.collect_logits(val_loader, device)
+            val_probs_after = torch.sigmoid(
+                scaled_logits / calibrated.temperature.cpu()
+            ).detach().numpy()
+            plot_reliability_diagram(
+                val_probs_before,
+                val_probs_after,
+                val_labels,
+                save_path=config.output_path / "reliability_diagram.png",
+            )
+        else:
+            LOGGER.warning(
+                "val_labels.npy / val_probs.npy introuvables — "
+                "reliability diagram ignoré. Relancer avec save_val_outputs=True."
+            )
+
+        # Sauvegarder calibrated_model.pt dans checkpoints/
+        checkpoint_dir = config.output_path / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        calibrated_path = checkpoint_dir / "calibrated_model.pt"
+        torch.save(
+            {
+                "temperature": calibrated.temperature.item(),
+                "model_state_dict": calibrated.model.state_dict(),
+                "config": config.to_dict(),
+            },
+            calibrated_path,
+        )
+        LOGGER.info("Modèle calibré sauvegardé : %s", calibrated_path)
 
 
 if __name__ == "__main__":
