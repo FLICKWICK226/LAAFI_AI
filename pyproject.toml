@@ -17,6 +17,7 @@ dependencies = [
     "PyYAML",
     "mlflow",
     "grad-cam",
+    "torchstain>=1.3.0",
 ]
 
 [tool.pytest.ini_options]
