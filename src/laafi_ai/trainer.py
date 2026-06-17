@@ -83,11 +83,40 @@ class Trainer:
         return float(np.mean(losses))
 
     @torch.no_grad()
-    def evaluate(self, loader: DataLoader) -> tuple[float, BinaryMetrics]:
+    def evaluate(self,loader: DataLoader,save_val_outputs: bool = False,) -> tuple[float, BinaryMetrics]:
         self.model.eval()
         losses: list[float] = []
         labels_all: list[np.ndarray] = []
         probabilities_all: list[np.ndarray] = []
+
+        for images, labels in tqdm(loader, desc="eval", leave=False):
+            images = images.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
+
+            logits = self.model(images).squeeze(1)
+            loss = self.criterion(logits, labels)
+
+            probabilities = torch.sigmoid(logits)
+
+            losses.append(float(loss.cpu()))
+            labels_all.append(labels.cpu().numpy())
+            probabilities_all.append(probabilities.cpu().numpy())
+
+        labels_np = np.concatenate(labels_all)
+        probabilities_np = np.concatenate(probabilities_all)
+
+        metrics = compute_binary_metrics(
+            labels_np,
+            probabilities_np,
+            threshold=self.config.training.decision_threshold,
+        )
+
+        if save_val_outputs:
+            output_dir = self.config.output_path
+            output_dir.mkdir(parents=True, exist_ok=True)
+            np.save(output_dir / "val_labels.npy", labels_np)
+            np.save(output_dir / "val_probs.npy", probabilities_np)
+        return float(np.mean(losses)), metrics
 
         for images, labels in tqdm(loader, desc="eval", leave=False):
             images = images.to(self.device, non_blocking=True)
@@ -119,18 +148,4 @@ class Trainer:
             path,
         )
         LOGGER.info("Saved checkpoint to %s", path)
-# pendant la validation
-all_logits = []
-all_labels = []
-with torch.no_grad():
-    for batch in val_loader:
-        images, labels = batch["image"].to(device), batch["label"].to(device)
-        logits = model(images)
-        all_logits.append(logits.cpu())
-        all_labels.append(labels.cpu())
 
-all_logits = torch.cat(all_logits).numpy()
-all_labels = torch.cat(all_labels).numpy()
-
-np.save(output_dir / "val_logits.npy", all_logits)
-np.save(output_dir / "val_labels.npy", all_labels)
