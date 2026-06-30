@@ -1,0 +1,48 @@
+# configs/he_normalization.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# A/B experiment config: H&E Macenko stain normalization enabled.
+# Compare against configs/default.yaml (baseline, no stain normalization).
+#
+# Usage:
+#   python -m laafi_ai.cli_train --config configs/he_normalization.yaml
+#
+# Expected gains: AUC +1-2pts, Sensitivity +3-5pts by reducing colour-domain
+# variance across PCam slides.
+# ─────────────────────────────────────────────────────────────────────────────
+
+project_name: "LAAFI_AI_PCam_ResNet50_HE_Macenko"
+seed: 42
+output_dir: "outputs_he_normalization"
+device: "auto"
+
+data:
+  dataset_name: "1aurent/PatchCamelyon"
+  image_size: 224
+  batch_size: 32
+  num_workers: 2
+  # H&E stain normalization — Macenko method
+  use_he_normalization: true
+  # Set to a file path to use a real tissue reference image (recommended
+  # for production). Leave null to use the built-in synthetic PCam reference.
+  he_reference_image_path: null
+
+model:
+  architecture: "resnet50"
+  pretrained: true
+  num_classes: 1
+  freeze_backbone: true
+  unfreeze_layer4: false
+
+optimizer:
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+
+training:
+  epochs: 5
+  mixed_precision: true
+  decision_threshold: 0.5
+  auto_optimize_threshold: true
+  calibrate_probabilities: true
+  use_mlflow: true
+  mlflow_experiment: "LAAFI_AI_HE_Macenko"
+  mlflow_tracking_uri: "mlruns"
