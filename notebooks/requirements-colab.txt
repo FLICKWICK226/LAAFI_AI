@@ -1,0 +1,14 @@
+torch
+torchvision
+datasets
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+tqdm
+Pillow
+PyYAML
+wandb
+grad-cam
+ipywidgets

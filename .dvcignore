@@ -1,0 +1,15 @@
+# DVC ignore patterns
+.env
+.venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# Ignore git files
+.git/
+
+# Ne pas ignorer le code source
+!src/
+!tests/

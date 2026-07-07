@@ -1,0 +1,50 @@
+# ── Checkpoints & model weights ─────────────────────────────
+outputs/
+outputs_smoke/
+outputs_feature_extraction/
+outputs_finetune_layer4/
+*.pt
+*.pth
+*.ckpt
+
+# ── Keep outputs_final/ (figures, Grad-CAM, metrics for README) ──
+# outputs_final/ is NOT ignored — it contains portfolio deliverables
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Jupyter / Colab ────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Weights & Biases ───────────────────────────────────────
+wandb/
+
+# ── IDE / Editor ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS artifacts ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Virtual environments ───────────────────────────────────
+.venv/
+venv/
+env/
+
+# Drive Logger — fichiers sensibles
+credentials.json
+token.json
+.env
+logging/credentials.json
+logging/token.json
+logging/.env
