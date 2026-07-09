@@ -35,7 +35,9 @@ def build_train_transform(
     if he_normalizer is not None and he_normalizer.enabled:
         # H&E normalisation → deterministic colour space; skip ColorJitter
         steps.append(he_normalizer)
-        LOGGER.debug("H&E Macenko normalizer enabled for training transforms (ColorJitter disabled).")
+        LOGGER.debug(
+            "H&E Macenko normalizer enabled for training transforms (ColorJitter disabled)."
+        )
     else:
         # Standard colour augmentation when no stain normalizer is active
         steps.append(
@@ -109,12 +111,16 @@ class PCamDataModule:
             raise TypeError("Expected a DatasetDict with train/validation/test splits.")
         return DatasetDict(
             {
-                "train": self._limit(self._split(raw, "train"), self.config.max_train_samples),
+                "train": self._limit(
+                    self._split(raw, "train"), self.config.max_train_samples
+                ),
                 "validation": self._limit(
                     self._split(raw, "validation", "valid", "val"),
                     self.config.max_val_samples,
                 ),
-                "test": self._limit(self._split(raw, "test"), self.config.max_test_samples),
+                "test": self._limit(
+                    self._split(raw, "test"), self.config.max_test_samples
+                ),
             }
         )
 
@@ -180,4 +186,6 @@ class PCamDataModule:
                 return dataset_dict[name]
         available = ", ".join(dataset_dict.keys())
         requested = ", ".join(names)
-        raise KeyError(f"Missing split. Requested one of [{requested}], available: [{available}]")
+        raise KeyError(
+            f"Missing split. Requested one of [{requested}], available: [{available}]"
+        )

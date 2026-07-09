@@ -10,7 +10,11 @@ import torch
 from laafi_ai.config import ExperimentConfig
 from laafi_ai.data import PCamDataModule
 from laafi_ai.logging_utils import setup_logging
-from laafi_ai.model import build_resnet50_classifier, count_trainable_parameters, get_device
+from laafi_ai.model import (
+    build_resnet50_classifier,
+    count_trainable_parameters,
+    get_device,
+)
 from laafi_ai.trainer import Trainer
 
 LOGGER = logging.getLogger(__name__)
@@ -51,12 +55,17 @@ def main() -> None:
     he_normalizer = None
     if config.data.use_he_normalization:
         from laafi_ai.stain_normalization import build_macenko_normalizer
+
         he_normalizer = build_macenko_normalizer(config.data.he_reference_image_path)
         if he_normalizer.enabled:
-            LOGGER.info("H&E Macenko stain normalization ENABLED (ref: %s).",
-                        config.data.he_reference_image_path or "synthetic PCam reference")
+            LOGGER.info(
+                "H&E Macenko stain normalization ENABLED (ref: %s).",
+                config.data.he_reference_image_path or "synthetic PCam reference",
+            )
         else:
-            LOGGER.warning("H&E normalization requested but torchstain unavailable — continuing without it.")
+            LOGGER.warning(
+                "H&E normalization requested but torchstain unavailable — continuing without it."
+            )
 
     data_module = PCamDataModule(config.data)
     train_loader, val_loader, _ = data_module.dataloaders(he_normalizer=he_normalizer)
@@ -70,6 +79,7 @@ def main() -> None:
     # --- Semaine 1-2 : Optimisation du seuil de décision (Youden J) ---
     if config.training.auto_optimize_threshold:
         from laafi_ai.threshold_optimization import optimize_threshold_from_val
+
         result = optimize_threshold_from_val(config.output_path)
         best_threshold = result["threshold"]
         LOGGER.info("Seuil optimal (Youden J) sur val : %.4f", best_threshold)
@@ -92,9 +102,11 @@ def main() -> None:
             val_labels = np.load(val_labels_path)
             val_probs_before = np.load(val_probs_path)
             scaled_logits, _ = calibrated.collect_logits(val_loader, device)
-            val_probs_after = torch.sigmoid(
-                scaled_logits / calibrated.temperature.cpu()
-            ).detach().numpy()
+            val_probs_after = (
+                torch.sigmoid(scaled_logits / calibrated.temperature.cpu())
+                .detach()
+                .numpy()
+            )
             plot_reliability_diagram(
                 val_probs_before,
                 val_probs_after,

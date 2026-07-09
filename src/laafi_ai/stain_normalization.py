@@ -43,6 +43,7 @@ LOGGER = logging.getLogger(__name__)
 # (≈130, 90, 160) occupying ~30 % of pixels.
 # This avoids shipping a real tissue image in the repo.
 
+
 def _make_synthetic_pcam_reference() -> Image.Image:
     """Return a synthetic 96×96 PCam-like H&E reference image."""
     rng = np.random.default_rng(42)
@@ -57,7 +58,7 @@ def _make_synthetic_pcam_reference() -> Image.Image:
     for _ in range(28):
         cy, cx = rng.integers(8, 88, 2)
         r = rng.integers(4, 10)
-        yy, xx = np.ogrid[-cy:96-cy, -cx:96-cx]
+        yy, xx = np.ogrid[-cy : 96 - cy, -cx : 96 - cx]
         mask = yy**2 + xx**2 <= r**2
         img[mask, 0] = rng.integers(110, 150, mask.sum(), dtype=np.uint8)
         img[mask, 1] = rng.integers(70, 105, mask.sum(), dtype=np.uint8)
@@ -69,6 +70,7 @@ def _make_synthetic_pcam_reference() -> Image.Image:
 # ---------------------------------------------------------------------------
 # MacenkoTransform
 # ---------------------------------------------------------------------------
+
 
 class MacenkoTransform:
     """PIL-to-PIL H&E normalizer backed by torchstain.
@@ -106,10 +108,16 @@ class MacenkoTransform:
         try:
             import torch
             import torchstain  # noqa: F401 — import probe
-            from torchstain.normalizers.macenko_normalizer import MacenkoNormalizer as _MacenkoNormalizer
+            from torchstain.normalizers.macenko_normalizer import (
+                MacenkoNormalizer as _MacenkoNormalizer,
+            )
             from torchvision import transforms as T
 
-            ref_img = reference_image if reference_image is not None else _make_synthetic_pcam_reference()
+            ref_img = (
+                reference_image
+                if reference_image is not None
+                else _make_synthetic_pcam_reference()
+            )
             ref_img = ref_img.convert("RGB")
 
             # torchstain expects a uint8 CHW tensor
@@ -122,8 +130,11 @@ class MacenkoTransform:
             self._normalizer = norm
             self._to_tensor = to_tensor
             self._enabled = True
-            LOGGER.info("MacenkoTransform initialised successfully on reference (%dx%d).",
-                        ref_img.width, ref_img.height)
+            LOGGER.info(
+                "MacenkoTransform initialised successfully on reference (%dx%d).",
+                ref_img.width,
+                ref_img.height,
+            )
 
         except ImportError:
             LOGGER.warning(
@@ -131,7 +142,10 @@ class MacenkoTransform:
                 "Install with: pip install torchstain"
             )
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("MacenkoTransform initialisation failed (%s) — falling back to identity.", exc)
+            LOGGER.warning(
+                "MacenkoTransform initialisation failed (%s) — falling back to identity.",
+                exc,
+            )
 
     # ------------------------------------------------------------------
     # Public interface
@@ -153,6 +167,7 @@ class MacenkoTransform:
 
         try:
             import torch
+
             img_rgb = image.convert("RGB")
             img_tensor = (self._to_tensor(img_rgb) * 255).to(torch.uint8)  # CHW uint8
             norm_tensor, _, _ = self._normalizer.normalize(I=img_tensor, stains=True)
@@ -161,7 +176,9 @@ class MacenkoTransform:
             return Image.fromarray(norm_uint8.permute(1, 2, 0).numpy(), mode="RGB")
 
         except Exception as exc:  # noqa: BLE001
-            LOGGER.debug("MacenkoTransform.__call__ failed (%s) — returning original.", exc)
+            LOGGER.debug(
+                "MacenkoTransform.__call__ failed (%s) — returning original.", exc
+            )
             return image
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -173,7 +190,10 @@ class MacenkoTransform:
 # Factory helper
 # ---------------------------------------------------------------------------
 
-def build_macenko_normalizer(reference_image_path: Optional[str] = None) -> MacenkoTransform:
+
+def build_macenko_normalizer(
+    reference_image_path: Optional[str] = None,
+) -> MacenkoTransform:
     """Construct a :class:`MacenkoTransform`.
 
     Parameters
@@ -194,6 +214,9 @@ def build_macenko_normalizer(reference_image_path: Optional[str] = None) -> Mace
             ref_img = Image.open(path).convert("RGB")
             LOGGER.info("Macenko reference loaded from %s", path)
         else:
-            LOGGER.warning("Reference image not found at %s — using synthetic PCam reference.", path)
+            LOGGER.warning(
+                "Reference image not found at %s — using synthetic PCam reference.",
+                path,
+            )
 
     return MacenkoTransform(reference_image=ref_img)

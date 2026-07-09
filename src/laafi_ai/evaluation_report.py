@@ -137,11 +137,18 @@ def save_metrics_csv(
         "specificity",
         "precision",
     ]
-    
+
     row = {"threshold": f"{threshold:.4f}"}
-    
+
     if bootstrap_results:
-        for k in ["accuracy", "auc", "average_precision", "sensitivity", "specificity", "precision"]:
+        for k in [
+            "accuracy",
+            "auc",
+            "average_precision",
+            "sensitivity",
+            "specificity",
+            "precision",
+        ]:
             mean_v, low_v, high_v = bootstrap_results[k]
             row[k] = f"{mean_v:.4f} [{low_v:.4f}, {high_v:.4f}]"
     else:
@@ -198,11 +205,18 @@ def generate_full_report(
     predictions = (probabilities >= threshold).astype(int)
 
     LOGGER.info("Computing bootstrap confidence intervals (this may take a moment)...")
-    bootstrap_results = compute_bootstrap_metrics(labels, probabilities, threshold=threshold)
+    bootstrap_results = compute_bootstrap_metrics(
+        labels, probabilities, threshold=threshold
+    )
 
     plot_roc_curve(labels, probabilities, figures_dir / "roc_curve.png")
     plot_pr_curve(labels, probabilities, figures_dir / "pr_curve.png")
     plot_confusion_matrix(labels, predictions, figures_dir / "confusion_matrix.png")
-    save_metrics_csv(metrics, metrics_dir / "metrics_finales.csv", threshold=threshold, bootstrap_results=bootstrap_results)
+    save_metrics_csv(
+        metrics,
+        metrics_dir / "metrics_finales.csv",
+        threshold=threshold,
+        bootstrap_results=bootstrap_results,
+    )
 
     LOGGER.info("Full evaluation report generated.")

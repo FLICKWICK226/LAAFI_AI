@@ -34,7 +34,9 @@ def build_resnet50_classifier(config: ModelConfig) -> nn.Module:
 
 
 def count_trainable_parameters(model: nn.Module) -> int:
-    return sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+    return sum(
+        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+    )
 
 
 def get_device(requested: str = "auto") -> torch.device:

@@ -27,6 +27,7 @@ def is_colab() -> bool:
     """Return True when running inside a Google Colab runtime."""
     try:
         import google.colab  # type: ignore[import-untyped]  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -110,8 +111,14 @@ def resolve_project_paths(
     reports_dir = output_path / "reports"
 
     # Create every directory eagerly so later code can write without checks.
-    for directory in (output_path, checkpoint_dir, metrics_dir, figures_dir,
-                      predictions_dir, reports_dir):
+    for directory in (
+        output_path,
+        checkpoint_dir,
+        metrics_dir,
+        figures_dir,
+        predictions_dir,
+        reports_dir,
+    ):
         directory.mkdir(parents=True, exist_ok=True)
 
     paths = ProjectPaths(

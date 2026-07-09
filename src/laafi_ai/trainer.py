@@ -27,7 +27,7 @@ LOGGER = logging.getLogger(__name__)
 def rand_bbox(size: torch.Size, lam: float) -> tuple[int, int, int, int]:
     W = size[2]
     H = size[3]
-    cut_rat = np.sqrt(1. - lam)
+    cut_rat = np.sqrt(1.0 - lam)
     cut_w = int(W * cut_rat)
     cut_h = int(H * cut_rat)
 
@@ -42,7 +42,9 @@ def rand_bbox(size: torch.Size, lam: float) -> tuple[int, int, int, int]:
     return bbx1, bby1, bbx2, bby2
 
 
-def apply_mixup(x: torch.Tensor, y: torch.Tensor, alpha: float) -> tuple[torch.Tensor, torch.Tensor]:
+def apply_mixup(
+    x: torch.Tensor, y: torch.Tensor, alpha: float
+) -> tuple[torch.Tensor, torch.Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
@@ -54,18 +56,20 @@ def apply_mixup(x: torch.Tensor, y: torch.Tensor, alpha: float) -> tuple[torch.T
     return mixed_x, mixed_y
 
 
-def apply_cutmix(x: torch.Tensor, y: torch.Tensor, alpha: float) -> tuple[torch.Tensor, torch.Tensor]:
+def apply_cutmix(
+    x: torch.Tensor, y: torch.Tensor, alpha: float
+) -> tuple[torch.Tensor, torch.Tensor]:
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1.0
     batch_size = x.size(0)
     index = torch.randperm(batch_size, device=x.device)
-    
+
     bbx1, bby1, bbx2, bby2 = rand_bbox(x.size(), lam)
     mixed_x = x.clone()
     mixed_x[:, :, bbx1:bbx2, bby1:bby2] = x[index, :, bbx1:bbx2, bby1:bby2]
-    
+
     lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x.size()[-1] * x.size()[-2]))
     mixed_y = lam * y + (1 - lam) * y[index]
     return mixed_x, mixed_y
@@ -75,6 +79,7 @@ def _try_import_mlflow():
     """Import mlflow paresseusement — pas de crash si non installé."""
     try:
         import mlflow
+
         return mlflow
     except ImportError:
         LOGGER.warning(
@@ -84,7 +89,9 @@ def _try_import_mlflow():
 
 
 class Trainer:
-    def __init__(self, model: nn.Module, config: ExperimentConfig, device: torch.device) -> None:
+    def __init__(
+        self, model: nn.Module, config: ExperimentConfig, device: torch.device
+    ) -> None:
         self.model = model.to(device)
         self.config = config
         self.device = device
@@ -122,7 +129,9 @@ class Trainer:
         """
         if self.config.training.use_mlflow:
             return self._fit_with_mlflow(train_loader, val_loader, resume_checkpoint)
-        return self._fit_loop(train_loader, val_loader, resume_checkpoint=resume_checkpoint)
+        return self._fit_loop(
+            train_loader, val_loader, resume_checkpoint=resume_checkpoint
+        )
 
     # ------------------------------------------------------------------
     # MLflow wrapper
@@ -144,29 +153,38 @@ class Trainer:
 
         with mlflow.start_run(run_name=self.config.project_name):
             # --- Logger tous les hyperparamètres ---
-            mlflow.log_params({
-                # Optimizer
-                "lr": self.config.optimizer.learning_rate,
-                "weight_decay": self.config.optimizer.weight_decay,
-                # Training
-                "epochs": self.config.training.epochs,
-                "decision_threshold": self.config.training.decision_threshold,
-                "mixed_precision": self.config.training.mixed_precision,
-                # Model
-                "architecture": self.config.model.architecture,
-                "pretrained": self.config.model.pretrained,
-                "freeze_backbone": self.config.model.freeze_backbone,
-                "unfreeze_layer4": self.config.model.unfreeze_layer4,
-                # Data
-                "batch_size": self.config.data.batch_size,
-                "image_size": self.config.data.image_size,
-                "dataset": self.config.data.dataset_name,
-            })
+            mlflow.log_params(
+                {
+                    # Optimizer
+                    "lr": self.config.optimizer.learning_rate,
+                    "weight_decay": self.config.optimizer.weight_decay,
+                    # Training
+                    "epochs": self.config.training.epochs,
+                    "decision_threshold": self.config.training.decision_threshold,
+                    "mixed_precision": self.config.training.mixed_precision,
+                    # Model
+                    "architecture": self.config.model.architecture,
+                    "pretrained": self.config.model.pretrained,
+                    "freeze_backbone": self.config.model.freeze_backbone,
+                    "unfreeze_layer4": self.config.model.unfreeze_layer4,
+                    # Data
+                    "batch_size": self.config.data.batch_size,
+                    "image_size": self.config.data.image_size,
+                    "dataset": self.config.data.dataset_name,
+                }
+            )
 
-            history = self._fit_loop(train_loader, val_loader, mlflow_client=mlflow, resume_checkpoint=resume_checkpoint)
+            history = self._fit_loop(
+                train_loader,
+                val_loader,
+                mlflow_client=mlflow,
+                resume_checkpoint=resume_checkpoint,
+            )
 
             # --- Logger le best checkpoint comme artifact ---
-            best_ckpt = self.config.output_path / "checkpoints" / "best_resnet50_pcam.pt"
+            best_ckpt = (
+                self.config.output_path / "checkpoints" / "best_resnet50_pcam.pt"
+            )
             if best_ckpt.exists():
                 mlflow.log_artifact(str(best_ckpt), artifact_path="checkpoints")
                 LOGGER.info("MLflow artifact loggé : %s", best_ckpt)
@@ -174,15 +192,19 @@ class Trainer:
             # --- Logger les métriques finales (best epoch) ---
             if history:
                 best_row = max(history, key=lambda r: r["val_auc"])
-                mlflow.log_metrics({
-                    "best_val_auc": best_row["val_auc"],
-                    "best_val_sensitivity": best_row["val_sensitivity"],
-                    "best_val_specificity": best_row["val_specificity"],
-                    "best_val_accuracy": best_row["val_accuracy"],
-                    "best_epoch": best_row["epoch"],
-                    "best_val_threshold_98": best_row.get("val_threshold_98", 0.5),
-                    "best_val_specificity_98": best_row.get("val_specificity_98", 0.0),
-                })
+                mlflow.log_metrics(
+                    {
+                        "best_val_auc": best_row["val_auc"],
+                        "best_val_sensitivity": best_row["val_sensitivity"],
+                        "best_val_specificity": best_row["val_specificity"],
+                        "best_val_accuracy": best_row["val_accuracy"],
+                        "best_epoch": best_row["epoch"],
+                        "best_val_threshold_98": best_row.get("val_threshold_98", 0.5),
+                        "best_val_specificity_98": best_row.get(
+                            "val_specificity_98", 0.0
+                        ),
+                    }
+                )
 
         return history
 
@@ -202,8 +224,11 @@ class Trainer:
             start_epoch = resume_checkpoint.next_epoch
             history: list[dict[str, float]] = list(resume_checkpoint.history)
             best_auc = resume_checkpoint.best_metric
-            LOGGER.info("Resuming training from epoch %d (best AUC so far: %.4f)",
-                        start_epoch, best_auc)
+            LOGGER.info(
+                "Resuming training from epoch %d (best AUC so far: %.4f)",
+                start_epoch,
+                best_auc,
+            )
         else:
             start_epoch = 1
             history = []
@@ -300,14 +325,19 @@ class Trainer:
 
             if self.config.training.use_mixup_cutmix:
                 if np.random.rand() < 0.5:
-                    images, labels = apply_mixup(images, labels, self.config.training.mixup_alpha)
+                    images, labels = apply_mixup(
+                        images, labels, self.config.training.mixup_alpha
+                    )
                 else:
-                    images, labels = apply_cutmix(images, labels, self.config.training.cutmix_alpha)
+                    images, labels = apply_cutmix(
+                        images, labels, self.config.training.cutmix_alpha
+                    )
 
             self.optimizer.zero_grad(set_to_none=True)
 
             with torch.cuda.amp.autocast(
-                enabled=self.config.training.mixed_precision and self.device.type == "cuda"
+                enabled=self.config.training.mixed_precision
+                and self.device.type == "cuda"
             ):
                 logits = self.model(images).squeeze(1)
                 loss = self.criterion(logits, labels)
@@ -377,7 +407,9 @@ class Trainer:
         """
         latest = find_latest_checkpoint(checkpoint_dir)
         if latest is None:
-            LOGGER.info("No checkpoint found in %s — training from scratch.", checkpoint_dir)
+            LOGGER.info(
+                "No checkpoint found in %s — training from scratch.", checkpoint_dir
+            )
             return None
 
         return load_training_checkpoint(

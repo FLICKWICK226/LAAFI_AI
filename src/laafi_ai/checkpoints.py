@@ -121,8 +121,9 @@ def save_training_checkpoint(
         payload["scaler_state_dict"] = scaler.state_dict()
 
     torch.save(payload, path)
-    LOGGER.info("Checkpoint saved → %s  (epoch %d, best_metric=%.4f)",
-                path, epoch, best_metric)
+    LOGGER.info(
+        "Checkpoint saved → %s  (epoch %d, best_metric=%.4f)", path, epoch, best_metric
+    )
     return path
 
 
@@ -179,8 +180,9 @@ def load_training_checkpoint(
     metrics = ckpt.get("metrics", {})
     config = ExperimentConfig.from_dict(ckpt.get("config", {}))
 
-    LOGGER.info("Checkpoint loaded ← %s  (epoch %d, best_metric=%.4f)",
-                path, epoch, best_metric)
+    LOGGER.info(
+        "Checkpoint loaded ← %s  (epoch %d, best_metric=%.4f)", path, epoch, best_metric
+    )
 
     return TrainingCheckpoint(
         path=path,

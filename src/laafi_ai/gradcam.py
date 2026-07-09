@@ -19,7 +19,9 @@ def make_gradcam_overlay(
         from pytorch_grad_cam.utils.image import show_cam_on_image
         from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
     except ImportError as error:
-        raise ImportError("Install the optional dependency with: pip install grad-cam") from error
+        raise ImportError(
+            "Install the optional dependency with: pip install grad-cam"
+        ) from error
 
     model.eval()
     device = next(model.parameters()).device
