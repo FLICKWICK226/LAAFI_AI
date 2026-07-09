@@ -88,9 +88,9 @@ def profile_inference(model_path: str, num_runs: int = 50, device_str: str = "au
         
         # 3. Postprocess
         t_post_start = time.perf_counter()
-        prediction = "Métastase" if prob >= 0.5 else "Sain"
-        result = {
-            "diagnostic": prediction,
+        _prediction = "Métastase" if prob >= 0.5 else "Sain"
+        _result = {
+            "diagnostic": _prediction,
             "probabilite": round(prob, 4),
             "risque_pourcentage": f"{prob * 100:.2f}%"
         }

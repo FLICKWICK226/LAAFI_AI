@@ -180,6 +180,8 @@ class Trainer:
                     "best_val_specificity": best_row["val_specificity"],
                     "best_val_accuracy": best_row["val_accuracy"],
                     "best_epoch": best_row["epoch"],
+                    "best_val_threshold_98": best_row.get("val_threshold_98", 0.5),
+                    "best_val_specificity_98": best_row.get("val_specificity_98", 0.0),
                 })
 
         return history
@@ -224,6 +226,9 @@ class Trainer:
                 "val_specificity": val_metrics.specificity,
                 "val_precision": val_metrics.precision,
                 "val_average_precision": val_metrics.average_precision,
+                "val_threshold_98": val_metrics.threshold_at_98_sens,
+                "val_specificity_98": val_metrics.specificity_at_98_sens,
+                "val_precision_98": val_metrics.precision_at_98_sens,
             }
             history.append(row)
             LOGGER.info("Epoch %s summary: %s", epoch, row)
@@ -240,6 +245,9 @@ class Trainer:
                         "val_specificity": val_metrics.specificity,
                         "val_precision": val_metrics.precision,
                         "val_average_precision": val_metrics.average_precision,
+                        "val_threshold_98": val_metrics.threshold_at_98_sens,
+                        "val_specificity_98": val_metrics.specificity_at_98_sens,
+                        "val_precision_98": val_metrics.precision_at_98_sens,
                     },
                     step=epoch,
                 )

@@ -1,6 +1,5 @@
 import gradio as gr
 import torch
-from PIL import Image
 import io
 from inference import load_model, predict_image
 
@@ -17,7 +16,6 @@ def gradio_predict(image_pil):
     result = predict_image(MODEL, image_bytes, DEVICE)
     
     # Formater pour l'affichage Gradio
-    diagnostic = result["diagnostic"]
     risque = result["probabilite"]
     
     # Retourner un dictionnaire pour le composant "Label" de Gradio

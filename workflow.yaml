@@ -1,0 +1,11 @@
+name: "LAAFI_AI_Sensitivity_Sweep"
+description: "Runs the 4 key experiments to push sensitivity > 95%"
+steps:
+  - name: "Exp1_Dynamic_Threshold"
+    command: "python -m laafi_ai.main --config configs/baseline.yaml --training.decision_threshold auto_98"
+  - name: "Exp2_Pos_Weight"
+    command: "python -m laafi_ai.main --config configs/baseline.yaml --training.pos_weight 5.0"
+  - name: "Exp3_Focal_Loss"
+    command: "python -m laafi_ai.main --config configs/baseline.yaml --training.loss_type focal --training.focal_gamma 2.0"
+  - name: "Exp4_TTA"
+    command: "python -m laafi_ai.main --config configs/best_model.yaml --training.use_tta True"
